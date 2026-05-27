@@ -288,13 +288,39 @@ python src/holosoma/holosoma/train_agent.py \
     --command.setup_terms.motion_command.params.motion_config.motion_file=/path/to/output/step4_preprocessed
 ```
 
-### Visualize Retargeting Results
+### Visualization
+
+All visualization commands run from `src/holosoma_retargeting/holosoma_retargeting/`.
+
+**Step 1 — SMPL skeleton clips** (sanity-check the joint positions before retargeting):
 
 ```bash
-# From src/holosoma_retargeting/holosoma_retargeting/
+# Single clip → renders front + side view to mp4
+python data_utils/visualize_clips.py \
+    --input /path/to/output/step1_prepared/ARG_CRO_220001_p00_s00.npz \
+    --output /path/to/videos/
+
+# Whole directory (first 10 clips)
+python data_utils/visualize_clips.py \
+    --input_dir /path/to/output/step1_prepared/ \
+    --output_dir /path/to/videos/ \
+    --max_clips 10
+```
+
+**Step 2 — Retargeted robot motion** (interactive 3-D viewer via Viser; open browser at the printed URL):
+
+```bash
 python viser_player.py \
     --robot_urdf models/g1/g1_29dof.urdf \
     --qpos_npz /path/to/output/step2_retargeted/<clip_name>_original.npz
+```
+
+**Step 4 — Final training clips** (MuJoCo-format, 50 Hz):
+
+```bash
+python viser_player.py \
+    --robot_urdf models/g1/g1_29dof.urdf \
+    --qpos_npz /path/to/output/step4_preprocessed/<clip_name>_original.npz
 ```
 
 ## Custom Human Motion Data Format
