@@ -69,10 +69,10 @@ _BONE_COLORS = [
 
 def _fig_to_bgr(fig: plt.Figure) -> np.ndarray:
     fig.canvas.draw()
-    buf = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    rgba = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
     w, h = fig.canvas.get_width_height()
-    rgb = buf.reshape(h, w, 3)
-    return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    rgba = rgba.reshape(h, w, 4)
+    return cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR)
 
 
 def render_clip(
