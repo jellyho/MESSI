@@ -168,6 +168,17 @@ def process_single_task(args):
         task_name = extract_task_name(file_path)
     else:
         task_name = extract_task_name(file_path)
+
+    # Early skip: check all augmentation outputs before loading any data
+    augmentations = generate_augmentation_configs(task_type, augmentation)
+    all_done = all(
+        Path(f"{save_dir}/{task_name}_{aug['name']}.npz").exists()
+        for aug in augmentations
+    )
+    if all_done:
+        print(f"Skipping (all outputs exist): {task_name}")
+        return
+
     print(f"Processing: {task_name}")
 
     # Task-specific object setup: set default object_dir for climbing if not provided
@@ -332,6 +343,23 @@ def main(cfg: ParallelRetargetingConfig) -> None:
         files = find_files(data_dir, data_format, cfg.task_config.object_name)
     print(f"Found {len(files)} files for task type: {task_type}")
 
+    # Pre-filter files whose outputs already exist — avoids spawning workers
+    # for clips that are fully done and would be skipped anyway.
+    augmentations = generate_augmentation_configs(task_type, cfg.augmentation)
+    pending_files = [
+        fp for fp in files
+        if not all(
+            Path(f"{save_dir}/{extract_task_name(fp)}_{aug['name']}.npz").exists()
+            for aug in augmentations
+        )
+    ]
+    n_skipped = len(files) - len(pending_files)
+    if n_skipped:
+        print(f"Skipping {n_skipped} already-completed clips; {len(pending_files)} pending.")
+    if not pending_files:
+        print("All clips already processed.")
+        return
+
     # Pass configs to worker processes
     process_args = [
         (
@@ -345,12 +373,12 @@ def main(cfg: ParallelRetargetingConfig) -> None:
             cfg.retargeter,
             cfg.augmentation,
         )
-        for file_path in files
+        for file_path in pending_files
     ]
 
-    # Set up parallel processing
-    max_workers = cfg.max_workers or mp.cpu_count()
-    print(f"Using {max_workers} parallel workers")
+    # Cap workers at the number of pending clips — no benefit in more workers than tasks.
+    max_workers = min(cfg.max_workers or mp.cpu_count(), len(pending_files))
+    print(f"Using {max_workers} parallel workers for {len(pending_files)} clips")
 
     start_time = time.time()
     successful = 0
@@ -379,12 +407,12 @@ def main(cfg: ParallelRetargetingConfig) -> None:
 
     print("\n=== Processing Summary ===")
     print(f"Task type: {task_type}")
-    print(f"Total files: {len(files)}")
+    print(f"Total files: {len(files)} ({n_skipped} skipped, {len(pending_files)} processed)")
     print(f"Successful: {successful}")
     print(f"Failed: {failed}")
     print(f"Total time: {end_time - start_time:.2f} seconds")
-    if len(files) > 0:
-        print(f"Average time per file: {(end_time - start_time) / len(files):.2f} seconds")
+    if len(pending_files) > 0:
+        print(f"Average time per file: {(end_time - start_time) / len(pending_files):.2f} seconds")
     print(f"Results saved to: {save_dir}")
 
 
