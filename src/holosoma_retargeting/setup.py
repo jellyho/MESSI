@@ -19,6 +19,9 @@ setup(
         "matplotlib",
         "trimesh",
         "smplx",
+        "opencv-python-headless",
+        # chumpy: install manually from GitHub — PyPI release (0.70) is broken with modern pip:
+        #   pip install git+https://github.com/mattloper/chumpy.git
         "jinja2",
         "mujoco",
         "viser",

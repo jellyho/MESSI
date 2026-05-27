@@ -66,6 +66,9 @@ if [[ ! -f $SENTINEL_FILE ]]; then
 
   # Install holosoma_retargeting
   pip install -U pip
+  # chumpy's setup.py does `import pip` which breaks in modern pip;
+  # --no-build-isolation bypasses the isolated build env where pip module is missing
+  pip install --no-build-isolation git+https://github.com/mattloper/chumpy.git
   pip install -e $ROOT_DIR/src/holosoma_retargeting
   touch $SENTINEL_FILE
 fi

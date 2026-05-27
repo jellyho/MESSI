@@ -8,6 +8,11 @@ ROOT_DIR=$(dirname "$SCRIPT_DIR")
 # Venv configuration (override via HS_INFER_VENV)
 VENV_DIR="${HS_INFER_VENV:-$ROOT_DIR/.venv/hsinference}"
 
+# uv cache/data dirs (override to avoid slow NFS home; inherits from env if already set)
+export UV_CACHE_DIR="${UV_CACHE_DIR:-$HOME/.cache/uv}"
+export UV_DATA_DIR="${UV_DATA_DIR:-$HOME/.local/share/uv}"
+UV_INSTALL_DIR="${UV_INSTALL_DIR:-$HOME/.local/bin}"
+
 # Parse command-line arguments
 INSTALL_ROBOT_SDKS=true
 PYTHON_VERSION=""
@@ -79,9 +84,9 @@ fi
 # Install uv if not present
 if ! command -v uv &> /dev/null; then
   echo "Installing uv..."
-  curl -LsSf https://astral.sh/uv/install.sh | sh
+  curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR="$UV_INSTALL_DIR" sh
   # Source the env so uv is available in this session
-  source $HOME/.local/bin/env 2>/dev/null || export PATH="$HOME/.local/bin:$PATH"
+  source "$UV_INSTALL_DIR/env" 2>/dev/null || export PATH="$UV_INSTALL_DIR:$PATH"
 fi
 
 echo "uv version: $(uv --version)"

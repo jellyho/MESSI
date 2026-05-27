@@ -24,6 +24,7 @@ src/
 ## Documentation
 
 - **[Training Guide](src/holosoma/README.md)** - Train locomotion and whole-body tracking policies in IsaacGym/IsaacSim
+- **[IsaacSim Cluster Installation](docs/isaacsim-cluster-installation.md)** - Install IsaacSim via pip on HPC/cluster servers (no Docker)
 - **[Inference & Deployment Guide](src/holosoma_inference/README.md)** - Deploy policies to real robots or evaluate in MuJoCo simulation
 - **[Retargeting Guide](src/holosoma_retargeting/holosoma_retargeting/README.md)** - Convert human motion capture data to robot motions
 
@@ -40,6 +41,8 @@ bash scripts/setup_isaacgym.sh
 # For IsaacSim training
 # Requires Ubuntu 22.04 or later due to IsaacSim dependencies
 bash scripts/setup_isaacsim.sh
+# For IsaacSim on HPC/cluster servers (no Docker, no sudo required)
+bash scripts/setup_isaacsim_cluster.sh
 
 # For MJWarp training and MuJoCo simulation (inference) — conda
 bash scripts/setup_mujoco.sh
