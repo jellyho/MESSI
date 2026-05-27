@@ -218,6 +218,85 @@ For OmniRetarget data downloaded from HuggingFace, please add `--use_omniretarge
 python data_conversion/convert_data_format_mj.py --input_file OmniRetarget/robot-object/sub3_largebox_003_original.npz --output_fps 50 --output_name converted_res/object_interaction/sub3_largebox_003_mj_w_obj_omnirt.npz --data_format smplh --object_name "largebox" --has_dynamic_object --use_omniretarget_data --once
 ```
 
+## WorldPoseDataset (FIFA Soccer Broadcast Motion)
+
+This pipeline converts the [WorldPoseDataset](https://github.com/jyuntins/world-pose) FIFA soccer broadcast poses (SMPL format) into training clips for the MESSI whole-body tracking policy on Unitree G1.
+
+### Prerequisites
+
+**WorldPoseDataset**: Download from the [WorldPoseDataset repo](https://github.com/jyuntins/world-pose). Pose `.npz` files should be at `/path/to/FIFA/poses/*.npz`. Each file contains up to 22 players tracked over ~1000 frames.
+
+**SMPL model**: Register at [smpl.is.tue.mpg.de](https://smpl.is.tue.mpg.de/) and download `SMPL_MALE.pkl`. Place it in a directory, e.g. `/path/to/smpl_models/SMPL_MALE.pkl`.
+
+### One-Command Pipeline
+
+Run all 4 steps end-to-end from the MESSI repo root:
+
+```bash
+WORLDPOSE_DATA=/path/to/FIFA/poses \
+SMPL_MODEL=/path/to/smpl_models/SMPL_MALE.pkl \
+OUTPUT_DIR=/path/to/output \
+bash demo_scripts/demo_worldpose_pipeline.sh
+```
+
+Override any default via env var. The script sources the retargeting conda env automatically (`hsretargeting` by default; set `CONDA_ENV_NAME=<name>` to override).
+
+### Pipeline Steps
+
+The pipeline is orchestrated by `examples/run_worldpose_pipeline.py` and runs 4 steps:
+
+| Step | Script | Output |
+|------|--------|--------|
+| 1 | `data_utils/prep_worldpose_for_rt.py` | Split players by NaN gaps, run SMPL FK → `(T, 22, 3)` joint clips |
+| 2 | `examples/parallel_robot_retarget.py` | Retarget human joints to G1 29-DOF joint space |
+| 3 | `data_conversion/convert_data_format_mj.py` | Convert to MuJoCo qpos/qvel format |
+| 4 | `data_utils/preprocess_retargeted.py` | Resample to 50 Hz + smooth-start blend |
+
+Run from `src/holosoma_retargeting/holosoma_retargeting/`:
+
+```bash
+# Full pipeline
+python examples/run_worldpose_pipeline.py \
+    --data_dir /path/to/FIFA/poses \
+    --smpl_model_path /path/to/smpl_models/SMPL_MALE.pkl \
+    --output_dir /path/to/output \
+    --smooth_start
+
+# Resume from step 2 (skip step 1 if clips already prepared)
+python examples/run_worldpose_pipeline.py \
+    --data_dir /path/to/FIFA/poses \
+    --smpl_model_path /path/to/smpl_models/SMPL_MALE.pkl \
+    --output_dir /path/to/output \
+    --start_step 2
+```
+
+### Key Parameters
+
+- `--task-config.ground-range -60 60` — soccer pitch is ~105 × 68 m; the default ±60 m covers it
+- `--retargeter.foot-sticking-tolerance 0.02` — relaxed foot sticking for dynamic soccer motion (default is stricter)
+- `--smooth_start` — prepend a 0.5 s default-pose hold + 0.3 s blend-in to each clip for stable training initialization
+
+### Training the WBT Policy
+
+After the pipeline completes, training-ready clips are at `OUTPUT_DIR/step4_preprocessed/`. Train the whole-body tracking policy:
+
+```bash
+source scripts/source_isaacsim_setup.sh
+python src/holosoma/holosoma/train_agent.py \
+    exp:g1-29dof-wbt-fast-sac \
+    logger:wandb \
+    --command.setup_terms.motion_command.params.motion_config.motion_file=/path/to/output/step4_preprocessed
+```
+
+### Visualize Retargeting Results
+
+```bash
+# From src/holosoma_retargeting/holosoma_retargeting/
+python viser_player.py \
+    --robot_urdf models/g1/g1_29dof.urdf \
+    --qpos_npz /path/to/output/step2_retargeted/<clip_name>_original.npz
+```
+
 ## Custom Human Motion Data Format
 Please see the instructions for custom human motion data formats: [ADD_MOTION_FORMAT_README.md](ADD_MOTION_FORMAT_README.md)
 
