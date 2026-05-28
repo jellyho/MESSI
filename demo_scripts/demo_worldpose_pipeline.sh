@@ -30,9 +30,9 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # ---- CONFIG (override via env vars) ----------------------------------------
-WORLDPOSE_DATA="${WORLDPOSE_DATA:-/data5/jellyho/FIFA/poses}"
-SMPL_MODEL="${SMPL_MODEL:-/data5/jellyho/Humanoid/smpl/SMPL_MALE.pkl}"
-OUTPUT_DIR="${OUTPUT_DIR:-/data5/jellyho/FIFA_pipeline}"
+WORLDPOSE_DATA="${WORLDPOSE_DATA:-/scratch/jellyho/FIFA/poses}"
+SMPL_MODEL="${SMPL_MODEL:-/scratch/jellyho/smpl/SMPL_MALE.pkl}"
+OUTPUT_DIR="${OUTPUT_DIR:-/scratch/jellyho/FIFA_pipeline}"
 TARGET_FPS="${TARGET_FPS:-50}"
 START_STEP="${START_STEP:-1}"
 SMOOTH_START="${SMOOTH_START:-1}"   # set to 0 to disable smooth-start blend

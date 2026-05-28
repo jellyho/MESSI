@@ -323,6 +323,102 @@ python viser_player.py \
     --qpos_npz /path/to/output/step4_preprocessed/<clip_name>_original.npz
 ```
 
+## WorldPose / FIFA Data — Fast GMR Pipeline
+
+The standard MESSI pipeline (Steps 1-3) uses a SQP/CVXPY-based interaction-mesh retargeter which is accurate but slow (~10-30 s/clip). For large datasets like WorldPose (FIFA soccer), a faster alternative uses **GMR** (General Motion Retargeting, bundled as `thirdparty/GMR`) which replaces Steps 1-3 with a single mink/daqp IK pass and headless MuJoCo FK.
+
+### What changes
+
+| | Original (Steps 1-3) | GMR pipeline (Step 1) |
+|---|---|---|
+| Retargeter | InteractionMeshRetargeter (SQP/CVXPY) | GMR (mink/daqp IK) |
+| Foot sticking | ✓ Hard constraint | ✗ (offset_to_ground only) |
+| Ground non-penetration | ✓ | ✗ |
+| Speed | ~10-30 s/clip | ~3-7 s/clip |
+| Step 2 (preprocess) | unchanged | unchanged |
+
+### Setup
+
+Initialise the GMR submodule (one-time):
+
+```bash
+git submodule update --init thirdparty/GMR
+```
+
+Install GMR's extra dependencies into the `hsretargeting` env (one-time, no version conflicts):
+
+```bash
+source scripts/source_retargeting_setup.sh
+pip install mink "qpsolvers[daqp]" loop_rate_limiters
+```
+
+> The demo script runs this automatically on every launch, so it's a no-op if already installed.
+
+### Local run
+
+```bash
+# From MESSI repo root
+bash demo_scripts/demo_worldpose_gmr_pipeline.sh
+
+# Override paths/options via env vars
+WORLDPOSE_DATA=/scratch/jellyho/FIFA/poses \
+SMPL_MODEL=/scratch/jellyho/smpl \
+OUTPUT_DIR=/scratch/jellyho/FIFA_gmr_pipeline \
+NUM_WORKERS=16 \
+    bash demo_scripts/demo_worldpose_gmr_pipeline.sh
+```
+
+### SLURM run (recommended for large datasets)
+
+```bash
+# Default: big_suma_rtx3090, 32 CPUs, 64 GB, 8 h
+bash scripts/slurm_worldpose_gmr.sh
+
+# Custom resources
+PARTITION=big_suma_rtx3090 NUM_CPUS=64 MEM=128G TIME=12:00:00 \
+    bash scripts/slurm_worldpose_gmr.sh
+
+# Resume from Step 2 only (skip retargeting)
+START_STEP=2 bash scripts/slurm_worldpose_gmr.sh
+```
+
+`srun` streams live output to your terminal **and** saves a timestamped log to `logs/`.  
+Run inside `tmux`/`screen` so you can safely detach:
+
+```bash
+tmux new -s gmr
+bash scripts/slurm_worldpose_gmr.sh
+# Ctrl-b d  →  detach     |     tmux attach -t gmr  →  re-attach
+```
+
+### Key options
+
+| Env var | Default | Description |
+|---|---|---|
+| `WORLDPOSE_DATA` | `/scratch/jellyho/FIFA/poses` | WorldPose .npz pose files |
+| `SMPL_MODEL` | `/scratch/jellyho/smpl` | Directory containing `SMPL_MALE.pkl` |
+| `OUTPUT_DIR` | `/scratch/jellyho/FIFA_gmr_pipeline` | Base output directory |
+| `ROBOT` | `unitree_g1` | Target robot |
+| `INPUT_FPS` | `50` | Input frame rate (WorldPose = 50 Hz broadcast) |
+| `TARGET_FPS` | `50` | Output control frequency |
+| `NUM_WORKERS` | `$SLURM_CPUS_PER_TASK` | Parallel workers (= `-c` value) |
+| `START_STEP` | `1` | Resume from step 1 or 2 |
+| `SMOOTH_START` | `0` | Set to `1` to prepend default-pose blend-in |
+| `PARTITION` | `big_suma_rtx3090` | SLURM partition |
+| `NUM_CPUS` | `32` | SLURM `-c` (cores); 1 core per worker |
+| `MEM` | `64G` | SLURM memory (~400-600 MB × workers) |
+| `TIME` | `08:00:00` | SLURM wall-clock limit |
+
+### Output
+
+```
+OUTPUT_DIR/
+├── step1_gmr_retargeted/     # per-clip .npz (qpos, qvel, body_pos_w, …)
+└── step2_preprocessed/       # final training-ready clips at target_fps
+```
+
+`step2_preprocessed/` is a drop-in replacement for the original pipeline's `step4_preprocessed/`.
+
 ## Custom Human Motion Data Format
 Please see the instructions for custom human motion data formats: [ADD_MOTION_FORMAT_README.md](ADD_MOTION_FORMAT_README.md)
 

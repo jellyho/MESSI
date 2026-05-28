@@ -210,8 +210,15 @@ def process_file(
     interp_s:     float,
 ) -> None:
     data     = np.load(in_path, allow_pickle=True)
-    qpos     = data["qpos"]           # (T, D)
-    qvel_orig = data.get("qvel", None)
+    # Accept both "qpos" (new GMR pipeline / Step 4 convention) and
+    # "joint_pos" (original MESSI Step 3 output) so both pipelines work.
+    if "qpos" in data:
+        qpos = data["qpos"]
+    elif "joint_pos" in data:
+        qpos = data["joint_pos"]
+    else:
+        raise KeyError(f"{in_path}: neither 'qpos' nor 'joint_pos' key found")
+    qvel_orig = data.get("qvel", data.get("joint_vel", None))
 
     # Detect source fps
     if "fps" in data:
