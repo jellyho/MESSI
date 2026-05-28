@@ -1,0 +1,3 @@
+[submodule "thirdparty/GMR"]
+	path = thirdparty/GMR
+	url = https://github.com/YanjieZe/GMR.git
